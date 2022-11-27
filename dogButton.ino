@@ -1,15 +1,10 @@
 #include <Adafruit_NeoPixel.h>
-// #ifdef __AVR__
-//   #include <avr/power.h>
-// #endif
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include "time.h"
 #include "secrets.h"
-#include "AsyncTelegram2.h"
-
-BearSSL::WiFiClientSecure client;
-BearSSL::Session   session;
-BearSSL::X509List  certificate(telegram_cert);  // telegram_cert is a const char array define in AsyncTelegram2
+#include <UniversalTelegramBot.h>
+#include <ArduinoJson.h>
 
 
 
@@ -19,6 +14,16 @@ BearSSL::X509List  certificate(telegram_cert);  // telegram_cert is a const char
 #define ledPin 2
 #define buttonPin 13
 
+//messages
+#define DOGS_NEED_TO_BE_FED "Feed the poor doggos!"
+#define DOGS_WERE_FED "The dogs have been fed!\nWhat good dogs!"
+#define DOGS_NEED_CHEWYS "Those poor pups! They need their chewies!"
+#define DOGS_GIVEN_CHEWYS "The dogs have been given chewies"
+
+
+WiFiClientSecure secured_client;
+UniversalTelegramBot bot(TELEGRAM_BOT_TOKEN, secured_client);
+unsigned long bot_lasttime; // last time messages' scan has been done
 
 Adafruit_NeoPixel pixels(NUMPIXELS, pxlPin, NEO_GRB + NEO_KHZ800);
 #define DELAYVAL 500
@@ -27,6 +32,7 @@ Adafruit_NeoPixel pixels(NUMPIXELS, pxlPin, NEO_GRB + NEO_KHZ800);
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = -25200;
 const int   daylightOffset_sec = 3600;
+
 
 void printLocalTime()
 {
@@ -41,6 +47,9 @@ void printLocalTime()
 void IRAM_ATTR button(){
   pixels.clear();
   Serial.println("button pressed");
+  bot.sendMessage(CHAT_ID, "Button pressed", "");
+
+  //sendTelegramMessage("Button pressed");
 }
 
 void setup() {
@@ -63,10 +72,16 @@ void setup() {
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   printLocalTime();
 
+  //telegram setup:
+  secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT); // Add root certificate for api.telegram.org
+  bot.sendMessage(CHAT_ID, "Bot started up", "");
+
+
+
   //disconnect WiFi as it's no longer needed
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
-  Serial.println("Wifi Disconnected");
+  // WiFi.disconnect(true);
+  // WiFi.mode(WIFI_OFF);
+  // Serial.println("Wifi Disconnected");
 }
 
 
