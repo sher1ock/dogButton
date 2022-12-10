@@ -5,9 +5,9 @@
 #include "secrets.h"
 #include <UniversalTelegramBot.h>
 #include <ArduinoJson.h>
-
-
-
+#include <TimeLib.h>
+#include <TimeAlarms.h>
+#include <WiFiUdp.h>
 
 #define pxlPin 25
 #define NUMPIXELS 12
@@ -15,10 +15,20 @@
 #define buttonPin 13
 
 //messages
-#define DOGS_NEED_TO_BE_FED "Feed the poor doggos!"
+#define DOGS_NEED_FED "Feed the poor doggos!"
 #define DOGS_WERE_FED "The dogs have been fed!\nWhat good dogs!"
 #define DOGS_NEED_CHEWYS "Those poor pups! They need their chewies!"
 #define DOGS_GIVEN_CHEWYS "The dogs have been given chewies"
+
+#define morningDeadline 10 //deadline for feeding the dogs in the morning
+#define eveningDeadline 18 //deadline for feeding the dogs in the evening
+
+#define preheat 4 //how many hours before the deadline the ring starts lighting up.
+
+time_t getNtpTime();
+void digitalClockDisplay();
+void printDigits(int digits);
+void sendNTPpacket(IPAddress &address);
 
 
 WiFiClientSecure secured_client;
@@ -29,27 +39,87 @@ Adafruit_NeoPixel pixels(NUMPIXELS, pxlPin, NEO_GRB + NEO_KHZ800);
 #define DELAYVAL 500
 
 
-const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = -25200;
-const int   daylightOffset_sec = 3600;
+static const char ntpServerName[] = "us.pool.ntp.org";
+
+const int timeZone = -7;     // may be work with DST
+
+WiFiUDP Udp;
+unsigned int localPort = 8888;  // local port to listen for UDP packets
+time_t prevDisplay = 0; // when the digital clock was displayed
 
 
-void printLocalTime()
-{
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time");
-    return;
-  }
-  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
-}
+time_t getNtpTime();
+void digitalClockDisplay();
+void printDigits(int digits);
+void sendNTPpacket(IPAddress &address);
+
+bool btnPress = false;
+bool buttonArmed = true;
+bool buttonTriggered = false;
+
+bool fed = false;
+bool chewie = false;
+
 
 void IRAM_ATTR button(){
   pixels.clear();
   Serial.println("button pressed");
-  bot.sendMessage(CHAT_ID, "Button pressed", "");
+  btnPress = true;
+}
 
-  //sendTelegramMessage("Button pressed");
+const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
+byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
+
+time_t getNtpTime(){
+  IPAddress ntpServerIP; // NTP server's ip address
+
+  while (Udp.parsePacket() > 0) ; // discard any previously received packets
+  Serial.println("Transmit NTP Request");
+  // get a random server from the pool
+  WiFi.hostByName(ntpServerName, ntpServerIP);
+  Serial.print(ntpServerName);
+  Serial.print(": ");
+  Serial.println(ntpServerIP);
+  sendNTPpacket(ntpServerIP);
+  uint32_t beginWait = millis();
+  while (millis() - beginWait < 1500) {
+    int size = Udp.parsePacket();
+    if (size >= NTP_PACKET_SIZE) {
+      Serial.println("Receive NTP Response");
+      Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
+      unsigned long secsSince1900;
+      // convert four bytes starting at location 40 to a long integer
+      secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
+      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
+      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
+      secsSince1900 |= (unsigned long)packetBuffer[43];
+      return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
+    }
+  }
+  Serial.println("No NTP Response :-(");
+  return 0; // return 0 if unable to get the time
+}
+
+void sendNTPpacket(IPAddress &address)
+{
+  // set all bytes in the buffer to 0
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  // Initialize values needed to form NTP request
+  // (see URL above for details on the packets)
+  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+  packetBuffer[1] = 0;     // Stratum, or type of clock
+  packetBuffer[2] = 6;     // Polling Interval
+  packetBuffer[3] = 0xEC;  // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12] = 49;
+  packetBuffer[13] = 0x4E;
+  packetBuffer[14] = 49;
+  packetBuffer[15] = 52;
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:
+  Udp.beginPacket(address, 123); //NTP requests are to port 123
+  Udp.write(packetBuffer, NTP_PACKET_SIZE);
+  Udp.endPacket();
 }
 
 void setup() {
@@ -68,35 +138,96 @@ void setup() {
   }
   Serial.println(" CONNECTED");
   
-  //init and get the time
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-  printLocalTime();
-
   //telegram setup:
   secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT); // Add root certificate for api.telegram.org
   bot.sendMessage(CHAT_ID, "Bot started up", "");
+  //NTP setup:
+  setSyncProvider(getNtpTime);
+  setSyncInterval(300);
+
+  //Alarm.timerRepeat(150, Repeats);           // timer for every 15 seconds
+
+  int morningAlarmTime = morningDeadline-preheat;
+  Alarm.alarmRepeat(morningAlarmTime,0,0,MorningAlarm);  // Setup for the morning alarm
+  Alarm.alarmRepeat(morningDeadline,0,0,MorningDeadline);  // Setup for the morning alarm  
+
+  int eveningAlarmTime = eveningDeadline-preheat;
+  Alarm.alarmRepeat(eveningAlarmTime,0,0,EveningAlarm);  // Setup for the evening alarm
+  Alarm.alarmRepeat(eveningDeadline,0,0,EveningDeadline);  // Setup for the morning alarm
 
 
-
-  //disconnect WiFi as it's no longer needed
-  // WiFi.disconnect(true);
-  // WiFi.mode(WIFI_OFF);
-  // Serial.println("Wifi Disconnected");
 }
 
+void MorningAlarm(){
+  fed = false;
+
+}
+
+void MorningDeadline(){
+
+}
+
+void EveningAlarm() {
+  Serial.println("Alarm: - turn lights on");
+  bot.sendMessage(CHAT_ID, "alarm triggered");
+
+}
+
+void EveningDeadline(){
+  
+}
+
+void Repeats() {
+  Serial.print("15 second timer");
+  bot.sendMessage(CHAT_ID, "Repeating Timer");
+
+}
+
+void digitalClockDisplay()
+{
+  // digital clock display of the time
+  Serial.print(hour());
+  printDigits(minute());
+  printDigits(second());
+  Serial.print(" ");
+  Serial.print(day());
+  Serial.print(".");
+  Serial.print(month());
+  Serial.print(".");
+  Serial.print(year());
+  Serial.println();
+}
+
+void printDigits(int digits)
+{
+  // utility for digital clock display: prints preceding colon and leading 0
+  Serial.print(":");
+  if (digits < 10)
+    Serial.print('0');
+  Serial.print(digits);
+}
 
 void loop() {
-  digitalWrite(ledPin, HIGH);
-	delay(500);
-	digitalWrite(ledPin, LOW);
-	delay(500);
-  pixels.clear();
-
-  for(int i=0; i<NUMPIXELS; i++) {
-
-    pixels.setPixelColor(i, pixels.Color(0, 15, 0));
-    pixels.show();
-    delay(DELAYVAL);
+  if(btnPress == true){
+    bot.sendMessage(CHAT_ID, "Button Pressed");
+    btnPress = false;
+    fed = true;
   }
-  printLocalTime();
+
+  digitalWrite(ledPin, HIGH);
+	Alarm.delay(500);
+	digitalWrite(ledPin, LOW);
+	Alarm.delay(500);
+//  pixels.clear();
+  digitalClockDisplay();
+  Alarm.delay(1000); // wait one second between clock display
+  Serial.print(hour());
+
+
 }
+
+  // for(int i=0; i<NUMPIXELS; i++) {
+
+  //   pixels.setPixelColor(i, pixels.Color(0, 15, 0));
+  //   pixels.show();
+  //   delay(DELAYVAL
