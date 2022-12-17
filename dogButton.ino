@@ -25,6 +25,12 @@
 
 #define preheat 4 //how many hours before the deadline the ring starts lighting up.
 
+int singlepixeldelay = (5*60)/12; //preheat/12*60*60*1000;
+
+int pixel = 0;
+
+AlarmId timerID;
+
 time_t getNtpTime();
 void digitalClockDisplay();
 void printDigits(int digits);
@@ -36,7 +42,6 @@ UniversalTelegramBot bot(TELEGRAM_BOT_TOKEN, secured_client);
 unsigned long bot_lasttime; // last time messages' scan has been done
 
 Adafruit_NeoPixel pixels(NUMPIXELS, pxlPin, NEO_GRB + NEO_KHZ800);
-#define DELAYVAL 500
 
 
 static const char ntpServerName[] = "us.pool.ntp.org";
@@ -100,8 +105,7 @@ time_t getNtpTime(){
   return 0; // return 0 if unable to get the time
 }
 
-void sendNTPpacket(IPAddress &address)
-{
+void sendNTPpacket(IPAddress &address){
   // set all bytes in the buffer to 0
   memset(packetBuffer, 0, NTP_PACKET_SIZE);
   // Initialize values needed to form NTP request
@@ -121,6 +125,7 @@ void sendNTPpacket(IPAddress &address)
   Udp.write(packetBuffer, NTP_PACKET_SIZE);
   Udp.endPacket();
 }
+
 
 void setup() {
   pixels.begin();
@@ -147,44 +152,57 @@ void setup() {
 
   //Alarm.timerRepeat(150, Repeats);           // timer for every 15 seconds
 
+
   int morningAlarmTime = morningDeadline-preheat;
   Alarm.alarmRepeat(morningAlarmTime,0,0,MorningAlarm);  // Setup for the morning alarm
   Alarm.alarmRepeat(morningDeadline,0,0,MorningDeadline);  // Setup for the morning alarm  
 
   int eveningAlarmTime = eveningDeadline-preheat;
-  Alarm.alarmRepeat(eveningAlarmTime,0,0,EveningAlarm);  // Setup for the evening alarm
-  Alarm.alarmRepeat(eveningDeadline,0,0,EveningDeadline);  // Setup for the morning alarm
+  Alarm.alarmRepeat(18,3,0,EveningAlarm);  // Setup for the evening alarm
+  Alarm.alarmRepeat(18,8,0,EveningDeadlineCheck);  // Setup for the morning alarm
 
 
 }
 
 void MorningAlarm(){
   fed = false;
+  pixels.clear();  
+  
 
 }
 
 void MorningDeadline(){
-
+  if(fed == 0){
+    bot.sendMessage(CHAT_ID, DOGS_NEED_FED);
+  }
 }
 
 void EveningAlarm() {
-  Serial.println("Alarm: - turn lights on");
-  bot.sendMessage(CHAT_ID, "alarm triggered");
-
+  Serial.println("evening alarm");
+  fed = false;
+  pixel = 0;
+  pixels.clear();
+  timerID = Alarm.timerRepeat(singlepixeldelay, PixelAdvance);
+  PixelAdvance();
+            
+    
 }
 
-void EveningDeadline(){
-  
+void PixelAdvance(){
+  Serial.println("pixeladvance");
+  pixels.setPixelColor(pixel, pixels.Color(15, 0, 0));
+  pixels.show();
+  pixel++;
 }
 
-void Repeats() {
-  Serial.print("15 second timer");
-  bot.sendMessage(CHAT_ID, "Repeating Timer");
-
+void EveningDeadlineCheck(){
+  if(fed == 0){
+    bot.sendMessage(CHAT_ID, DOGS_NEED_FED);
+  }
 }
 
-void digitalClockDisplay()
-{
+
+void digitalClockDisplay(){
   // digital clock display of the time
   Serial.print(hour());
   printDigits(minute());
@@ -198,8 +216,7 @@ void digitalClockDisplay()
   Serial.println();
 }
 
-void printDigits(int digits)
-{
+void printDigits(int digits){
   // utility for digital clock display: prints preceding colon and leading 0
   Serial.print(":");
   if (digits < 10)
@@ -207,27 +224,38 @@ void printDigits(int digits)
   Serial.print(digits);
 }
 
-void loop() {
+void loop(){
   if(btnPress == true){
     bot.sendMessage(CHAT_ID, "Button Pressed");
     btnPress = false;
     fed = true;
+    for(int i=0; i<NUMPIXELS; i++) {
+
+      pixels.setPixelColor(i, pixels.Color(0, 15, 0));
+      pixels.show();
+      delay(50);
+    }
+
   }
 
   digitalWrite(ledPin, HIGH);
 	Alarm.delay(500);
 	digitalWrite(ledPin, LOW);
 	Alarm.delay(500);
-//  pixels.clear();
+  //pixels.clear();
   digitalClockDisplay();
-  Alarm.delay(1000); // wait one second between clock display
-  Serial.print(hour());
+
+  if(fed == true){
+    Alarm.disable(timerID);    
+  }  //Alarm.delay(1000); // wait one second between clock display
 
 
-}
 
   // for(int i=0; i<NUMPIXELS; i++) {
 
-  //   pixels.setPixelColor(i, pixels.Color(0, 15, 0));
+  //   pixels.setPixelColor(i, pixels.Color(15, 0, 0));
   //   pixels.show();
-  //   delay(DELAYVAL
+  //   delay(DELAYVAL);
+
+  // }
+}
