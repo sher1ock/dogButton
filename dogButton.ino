@@ -17,15 +17,18 @@
 //messages
 #define DOGS_NEED_FED "Feed the poor doggos!"
 #define DOGS_WERE_FED "The dogs have been fed!\nWhat good dogs!"
-#define DOGS_NEED_CHEWYS "Those poor pups! They need their chewies!"
-#define DOGS_GIVEN_CHEWYS "The dogs have been given chewies"
+#define DOGS_NEED_CHEWIES "Those poor pups! They need their chewies!"
+#define DOGS_GIVEN_CHEWIES "The dogs have been given chewies"
 
 #define morningDeadline 10  //deadline for feeding the dogs in the morning
 #define eveningDeadline 18  //deadline for feeding the dogs in the evening
+#define chewiesDeadline 22 //deadline for chewies
 
 #define preheat 4  //how many hours before the deadline the ring starts lighting up.
 
-int singlepixeldelay = (5 * 60) / 12;  //preheat/12*60*60*1000;
+int singlepixeldelay = preheat/12*60*60*1000;
+
+//int singlepixeldelay = (5 * 60) / 12;
 
 int pixel = 0;
 
@@ -46,7 +49,7 @@ Adafruit_NeoPixel pixels(NUMPIXELS, pxlPin, NEO_GRB + NEO_KHZ800);
 
 static const char ntpServerName[] = "us.pool.ntp.org";
 
-const int timeZone = -7;  // may be work with DST
+const int timeZone = -7;  // may be working with DST, we'll find out in another 3 months...
 
 WiFiUDP Udp;
 unsigned int localPort = 8888;  // local port to listen for UDP packets
@@ -129,21 +132,23 @@ void sendNTPpacket(IPAddress &address) {
 
 
 void setup() {
-  pixels.begin();
+  pixels.begin(); //neopixel setup
   pinMode(ledPin, OUTPUT);
   pinMode(pxlPin, OUTPUT);
   pinMode(buttonPin, INPUT_PULLUP);
-  attachInterrupt(buttonPin, button, FALLING);
+  attachInterrupt(buttonPin, button, FALLING); //serial setup
   Serial.begin(115200);
   //connect to WiFi
   Serial.printf("Connecting to %s ", ssid);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+    Serial.print(".");    
+    digitalWrite(ledPin, HIGH);
+    Alarm.delay(500);
+    digitalWrite(ledPin, LOW);
   }
   Serial.println(" CONNECTED");
-
   //telegram setup:
   secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT);  // Add root certificate for api.telegram.org
   bot.sendMessage(CHAT_ID, "Bot started up", "");
@@ -151,16 +156,20 @@ void setup() {
   setSyncProvider(getNtpTime);
   setSyncInterval(300);
 
-  //Alarm.timerRepeat(150, Repeats);           // timer for every 15 seconds
-
-
   int morningAlarmTime = morningDeadline - preheat;
   Alarm.alarmRepeat(morningAlarmTime, 0, 0, MorningAlarm);    // Setup for the morning alarm
-  Alarm.alarmRepeat(morningDeadline, 0, 0, MorningDeadline);  // Setup for the morning alarm
+  Alarm.alarmRepeat(morningDeadline, 0, 0, MorningDeadline);  
 
   int eveningAlarmTime = eveningDeadline - preheat;
   Alarm.alarmRepeat(eveningAlarmTime, 0, 0, EveningAlarm);           // Setup for the evening alarm
-  Alarm.alarmRepeat(eveningDeadline, 40, 0, EveningDeadlineCheck);  // Setup for the morning alarm
+  Alarm.alarmRepeat(eveningDeadline, 0, 0, EveningDeadline);  
+
+  int chewiesAlarmTime = chewiesDeadline - preheat;
+  Alarm.alarmRepeat(chewiesAlarmTime, 0, 0, ChewiesAlarm);           // Setup for the chewies alarm
+  Alarm.alarmRepeat(chewiesDeadline, 0, 0, ChewiesDeadline);
+
+  pixels.clear();
+
 }
 
 void MorningAlarm() {
@@ -183,19 +192,35 @@ void EveningAlarm() {
   PixelAdvance();
 }
 
+void EveningDeadline() {
+  if (fed == 0) {
+    bot.sendMessage(CHAT_ID, DOGS_NEED_FED);
+  }
+}
+
+void ChewiesAlarm() {
+  Serial.println("evening alarm");
+  chewie = false;
+  pixel = 0;
+  pixels.clear();
+  timerID = Alarm.timerRepeat(singlepixeldelay, PixelAdvance);
+  PixelAdvance();
+}
+
+void ChewiesDeadline() {
+  if (chewie == 0) {
+    bot.sendMessage(CHAT_ID, DOGS_NEED_CHEWIES);
+  }
+}
+
+
+
 void PixelAdvance() {
   Serial.println("pixeladvance");
   pixels.setPixelColor(pixel, pixels.Color(15, 0, 0));
   pixels.show();
   pixel++;
 }
-
-void EveningDeadlineCheck() {
-  if (fed == 0) {
-    bot.sendMessage(CHAT_ID, DOGS_NEED_FED);
-  }
-}
-
 
 void digitalClockDisplay() {
   // digital clock display of the time
@@ -221,7 +246,7 @@ void printDigits(int digits) {
 
 void loop() {
   if (btnPress == true) {
-    bot.sendMessage(CHAT_ID, "Button Pressed");
+    bot.sendMessage(CHAT_ID, DOGS_WERE_FED);
     btnPress = false;
     fed = true;
     for (int i = 0; i < NUMPIXELS; i++) {
@@ -231,16 +256,17 @@ void loop() {
       delay(50);
     }
   }
-
-  digitalWrite(ledPin, HIGH);
-  Alarm.delay(500);
-  digitalWrite(ledPin, LOW);
-  Alarm.delay(500);
-  //pixels.clear();
+    if (WiFi.status() != WL_CONNECTED) {
+    digitalWrite(ledPin, HIGH);
+    Alarm.delay(500);
+    digitalWrite(ledPin, LOW);
+    Alarm.delay(500);
+    }  //pixels.clear();
   digitalClockDisplay();
+  Alarm.delay(1000);
 
   if (fed == true) {
     Alarm.disable(timerID);
-  }  //Alarm.delay(1000); // wait one second between clock display
+  }  
 
 }
