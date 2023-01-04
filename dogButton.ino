@@ -10,10 +10,10 @@
 #include <WiFiUdp.h>
 
 #define pxlPin 25
-#define NUMPIXELS 12
+#define NUMPIXELS 24
 #define ledPin 2
-#define buttonPin 13
-#define buttonPin2 12
+#define buttonPin 12
+#define buttonPin2 14
 
 //messages
 #define DOGS_NEED_FED "Feed the poor doggos!"
@@ -75,14 +75,14 @@ bool chewie = false;
 
 
 void IRAM_ATTR button() {
-  pixels.clear();
+  //pixels.clear();
   //pixels.show();
   Serial.println("button pressed");
   btnPress = true;
 }
 void IRAM_ATTR button2() {
-  pixels.clear();
-  Serial.println("button pressed");
+  //pixels.clear();
+  Serial.println("button 2 pressed");
   btnPress2 = true;
 }
 
@@ -186,8 +186,10 @@ void setup() {
   pinMode(buttonPin, INPUT_PULLUP);
   attachInterrupt(buttonPin, button, FALLING);
   pinMode(buttonPin2, INPUT_PULLUP);
-  attachInterrupt(buttonPin2, button, FALLING);
+  attachInterrupt(buttonPin2, button2, FALLING);
   Serial.begin(115200);
+  pixels.clear();
+  pixels.show();
   //connect to WiFi
   Serial.printf("Connecting to %s ", ssid);
   WiFi.begin(ssid, password);
@@ -207,27 +209,27 @@ void setup() {
   setSyncInterval(300);
 
   int morningAlarmTime = morningDeadline - preheat;
-  Alarm.alarmRepeat(/*morningAlarmTime*/17, 0, 0, MorningAlarm);    // Setup for the morning alarm
-  Alarm.alarmRepeat(/*morningDeadline*/17, 5, 0, MorningDeadline);  
+  Alarm.alarmRepeat(/*morningAlarmTime*/16, 30, 0, MorningAlarm);    // Setup for the morning alarm
+  Alarm.alarmRepeat(/*morningDeadline*/16, 35, 0, MorningDeadline);  
 
   int eveningAlarmTime = eveningDeadline - preheat;
-  Alarm.alarmRepeat(/*eveningAlarmTime*/17, 10, 0, EveningAlarm);           // Setup for the evening alarm
-  Alarm.alarmRepeat(/*eveningDeadline*/17, 15, 0, EveningDeadline);
+  Alarm.alarmRepeat(/*eveningAlarmTime*/16, 35, 0, EveningAlarm);           // Setup for the evening alarm
+  Alarm.alarmRepeat(/*eveningDeadline*/16, 40, 0, EveningDeadline);
 
   int chewiesAlarmTime = chewiesDeadline - preheat;
-  Alarm.alarmRepeat(/*chewiesAlarmTime*/17, 20, 0, ChewiesAlarm);           // Setup for the chewies alarm
-  Alarm.alarmRepeat(/*chewiesDeadline*/17, 2, 0, ChewiesDeadline);
+  Alarm.alarmRepeat(/*chewiesAlarmTime*/16, 40, 30, ChewiesAlarm);           // Setup for the chewies alarm
+  Alarm.alarmRepeat(/*chewiesDeadline*/16, 45, 30, ChewiesDeadline);
 
-  pixels.clear();
-  pixels.show();
+  clearsecond();
 
 }
 
 void MorningAlarm() {
   Serial.println("morning alarm");
+  //Alarm.free(fedTimer);
   fed = false;
   pixel = 0;
-  pixels.clear();
+  clearfirst();
   fedTimer = Alarm.timerRepeat(singlepixeldelay, PixelAdvance);
   PixelAdvance();
 }
@@ -240,9 +242,10 @@ void MorningDeadline() {
 
 void EveningAlarm() {
   Serial.println("evening alarm");
+  //Alarm.free(fedTimer);
   fed = false;
   pixel = 0;
-  pixels.clear();
+  clearfirst();
   fedTimer = Alarm.timerRepeat(singlepixeldelay, PixelAdvance);
   PixelAdvance();
 }
@@ -254,12 +257,12 @@ void EveningDeadline() {
 }
 
 void ChewiesAlarm() {
-  Serial.println("evening alarm");
+  Serial.println("chewies alarm");
   chewie = false;
-  pixel = 0;
-  pixels.clear();
+  pixel2 = 12;
+  clearsecond();
   chewieTimer = Alarm.timerRepeat(singlepixeldelay, PixelAdvance2);
-  PixelAdvance();
+  PixelAdvance2();
 }
 
 void ChewiesDeadline() {
@@ -268,25 +271,39 @@ void ChewiesDeadline() {
   }
 }
 
-
-
 void PixelAdvance() {
   Serial.println("pixeladvance");
-  if(pixel<12){
   pixels.setPixelColor(pixel, pixels.Color(15, 0, 0));
   pixels.show();
   pixel++;
-  }
 }
 
 void PixelAdvance2() {
-  Serial.println("pixeladvance");
-  if(pixel2<12){
-  pixels.setPixelColor(pixel2+12, pixels.Color(15, 0, 0));
+  Serial.println("pixeladvance2");
+  pixels.setPixelColor(pixel2, pixels.Color(15, 0, 0));
   pixels.show();
-  pixel++;
-  }
+  pixel2++;
+
 }
+
+void clearfirst(){
+  for (int i = 0; i < NUMPIXELS/2; i++) {
+
+    pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+    pixels.show();
+    delay(5);
+  }
+  
+}
+
+void clearsecond(){
+  for (int i = NUMPIXELS/2; i < NUMPIXELS; i++) {
+
+    pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+    pixels.show();
+    delay(5);
+  }
+}  
 
 void digitalClockDisplay() {
   // digital clock display of the time
@@ -312,26 +329,30 @@ void printDigits(int digits) {
 
 void loop() {
   if (btnPress == true) {
-    bot.sendMessage(CHAT_ID, DOGS_WERE_FED);
     btnPress = false;
-    fed = true;
-    for (int i = 0; i < NUMPIXELS; i++) {
+    for (int i = 0; i < NUMPIXELS/2; i++) {
 
       pixels.setPixelColor(i, pixels.Color(0, 5, 0));
-      pixels.show();
-      delay(5);
+      pixels.show();      
+      //delay(5);
     }
+    fed = true;
+    bot.sendMessage(CHAT_ID, DOGS_WERE_FED);
+    Alarm.free(fedTimer);
+
   }
   if (btnPress2 == true) {
-    bot.sendMessage(CHAT_ID, DOGS_GIVEN_CHEWIES);
     btnPress2 = false;
     chewie = true;
-    for (int i = 12; i < NUMPIXELS*2; i++) {
+    for (int i = NUMPIXELS/2; i < NUMPIXELS; i++) {
 
       pixels.setPixelColor(i, pixels.Color(0, 5, 0));
       pixels.show();
-      delay(25);
+      //delay(25);
     }
+    bot.sendMessage(CHAT_ID, DOGS_GIVEN_CHEWIES);
+    Alarm.free(chewieTimer);    
+
   }
     if (WiFi.status() != WL_CONNECTED) {
     digitalWrite(ledPin, HIGH);
