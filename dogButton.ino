@@ -209,16 +209,16 @@ void setup() {
   setSyncInterval(300);
 
   int morningAlarmTime = morningDeadline - preheat;
-  Alarm.alarmRepeat(/*morningAlarmTime*/16, 30, 0, MorningAlarm);    // Setup for the morning alarm
-  Alarm.alarmRepeat(/*morningDeadline*/16, 35, 0, MorningDeadline);  
+  Alarm.alarmRepeat(/*morningAlarmTime*/16, 50, 0, MorningAlarm);    // Setup for the morning alarm
+  Alarm.alarmRepeat(/*morningDeadline*/16, 55, 0, MorningDeadline);  
 
   int eveningAlarmTime = eveningDeadline - preheat;
-  Alarm.alarmRepeat(/*eveningAlarmTime*/16, 35, 0, EveningAlarm);           // Setup for the evening alarm
-  Alarm.alarmRepeat(/*eveningDeadline*/16, 40, 0, EveningDeadline);
+  Alarm.alarmRepeat(/*eveningAlarmTime*/16, 55, 0, EveningAlarm);           // Setup for the evening alarm
+  Alarm.alarmRepeat(/*eveningDeadline*/17, 0, 0, EveningDeadline);
 
   int chewiesAlarmTime = chewiesDeadline - preheat;
-  Alarm.alarmRepeat(/*chewiesAlarmTime*/16, 40, 30, ChewiesAlarm);           // Setup for the chewies alarm
-  Alarm.alarmRepeat(/*chewiesDeadline*/16, 45, 30, ChewiesDeadline);
+  Alarm.alarmRepeat(/*chewiesAlarmTime*/17, 0, 30, ChewiesAlarm);           // Setup for the chewies alarm
+  Alarm.alarmRepeat(/*chewiesDeadline*/17, 5, 30, ChewiesDeadline);
 
   clearsecond();
 
@@ -276,6 +276,9 @@ void PixelAdvance() {
   pixels.setPixelColor(pixel, pixels.Color(15, 0, 0));
   pixels.show();
   pixel++;
+  if (pixel>NUMPIXELS/2){
+    Alarm.free(fedTimer);
+  }
 }
 
 void PixelAdvance2() {
@@ -283,6 +286,9 @@ void PixelAdvance2() {
   pixels.setPixelColor(pixel2, pixels.Color(15, 0, 0));
   pixels.show();
   pixel2++;
+  if (pixel2 >NUMPIXELS){
+    Alarm.free(chewieTimer);
+  }
 
 }
 
