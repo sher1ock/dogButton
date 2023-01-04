@@ -76,6 +76,7 @@ bool chewie = false;
 
 void IRAM_ATTR button() {
   pixels.clear();
+  //pixels.show();
   Serial.println("button pressed");
   btnPress = true;
 }
@@ -206,16 +207,16 @@ void setup() {
   setSyncInterval(300);
 
   int morningAlarmTime = morningDeadline - preheat;
-  Alarm.alarmRepeat(/*morningAlarmTime*/14, 5, 0, MorningAlarm);    // Setup for the morning alarm
-  Alarm.alarmRepeat(/*morningDeadline*/14, 10, 0, MorningDeadline);  
+  Alarm.alarmRepeat(/*morningAlarmTime*/17, 0, 0, MorningAlarm);    // Setup for the morning alarm
+  Alarm.alarmRepeat(/*morningDeadline*/17, 5, 0, MorningDeadline);  
 
   int eveningAlarmTime = eveningDeadline - preheat;
-  Alarm.alarmRepeat(/*eveningAlarmTime*/14, 15, 0, EveningAlarm);           // Setup for the evening alarm
-  Alarm.alarmRepeat(/*eveningDeadline*/14, 20, 0, EveningDeadline);
+  Alarm.alarmRepeat(/*eveningAlarmTime*/17, 10, 0, EveningAlarm);           // Setup for the evening alarm
+  Alarm.alarmRepeat(/*eveningDeadline*/17, 15, 0, EveningDeadline);
 
   int chewiesAlarmTime = chewiesDeadline - preheat;
-  Alarm.alarmRepeat(/*chewiesAlarmTime*/14, 25, 0, ChewiesAlarm);           // Setup for the chewies alarm
-  Alarm.alarmRepeat(/*chewiesDeadline*/14, 30, 0, ChewiesDeadline);
+  Alarm.alarmRepeat(/*chewiesAlarmTime*/17, 20, 0, ChewiesAlarm);           // Setup for the chewies alarm
+  Alarm.alarmRepeat(/*chewiesDeadline*/17, 2, 0, ChewiesDeadline);
 
   pixels.clear();
   pixels.show();
@@ -318,7 +319,7 @@ void loop() {
 
       pixels.setPixelColor(i, pixels.Color(0, 5, 0));
       pixels.show();
-      delay(25);
+      delay(5);
     }
   }
   if (btnPress2 == true) {
