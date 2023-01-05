@@ -209,16 +209,16 @@ void setup() {
   setSyncInterval(300);
 
   int morningAlarmTime = morningDeadline - preheat;
-  Alarm.alarmRepeat(/*morningAlarmTime*/16, 50, 0, MorningAlarm);    // Setup for the morning alarm
-  Alarm.alarmRepeat(/*morningDeadline*/16, 55, 0, MorningDeadline);  
+  Alarm.alarmRepeat(/*morningAlarmTime*/17, 50, 0, MorningAlarm);    // Setup for the morning alarm
+  Alarm.alarmRepeat(/*morningDeadline*/17, 55, 0, MorningDeadline);  
 
   int eveningAlarmTime = eveningDeadline - preheat;
-  Alarm.alarmRepeat(/*eveningAlarmTime*/16, 55, 0, EveningAlarm);           // Setup for the evening alarm
-  Alarm.alarmRepeat(/*eveningDeadline*/17, 0, 0, EveningDeadline);
+  Alarm.alarmRepeat(/*eveningAlarmTime*/17, 35, 0, EveningAlarm);           // Setup for the evening alarm
+  Alarm.alarmRepeat(/*eveningDeadline*/17, 40, 0, EveningDeadline);
 
   int chewiesAlarmTime = chewiesDeadline - preheat;
-  Alarm.alarmRepeat(/*chewiesAlarmTime*/17, 0, 30, ChewiesAlarm);           // Setup for the chewies alarm
-  Alarm.alarmRepeat(/*chewiesDeadline*/17, 5, 30, ChewiesDeadline);
+  Alarm.alarmRepeat(/*chewiesAlarmTime*/17, 40, 30, ChewiesAlarm);           // Setup for the chewies alarm
+  Alarm.alarmRepeat(/*chewiesDeadline*/17, 45, 30, ChewiesDeadline);
 
   clearsecond();
 
@@ -276,8 +276,9 @@ void PixelAdvance() {
   pixels.setPixelColor(pixel, pixels.Color(15, 0, 0));
   pixels.show();
   pixel++;
-  if (pixel>NUMPIXELS/2){
+  if (pixel+1>NUMPIXELS/2){
     Alarm.free(fedTimer);
+    Serial.println("clearing timer");
   }
 }
 
@@ -286,14 +287,15 @@ void PixelAdvance2() {
   pixels.setPixelColor(pixel2, pixels.Color(15, 0, 0));
   pixels.show();
   pixel2++;
-  if (pixel2 >NUMPIXELS){
-    Alarm.free(chewieTimer);
-  }
 
+  if (pixel2>NUMPIXELS){
+    Alarm.free(chewieTimer);
+    Serial.println("clearing timer2");
+  }
 }
 
 void clearfirst(){
-  for (int i = 0; i < NUMPIXELS/2; i++) {
+  for (int i = 0; i < NUMPIXELS/2-1; i++) {
 
     pixels.setPixelColor(i, pixels.Color(0, 0, 0));
     pixels.show();
@@ -360,18 +362,16 @@ void loop() {
     Alarm.free(chewieTimer);    
 
   }
-    if (WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() != WL_CONNECTED) {
     digitalWrite(ledPin, HIGH);
     Alarm.delay(500);
     digitalWrite(ledPin, LOW);
     Alarm.delay(500);
     }  //pixels.clear();
-  digitalClockDisplay();
+  //digitalClockDisplay();
   Alarm.delay(250);
 
-  if (fed == true) {
-    Alarm.free(fedTimer);
-  }
+
   if (millis() - bot_lasttime > BOT_MTBS){
     int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
 
