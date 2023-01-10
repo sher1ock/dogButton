@@ -27,9 +27,9 @@
 
 #define preheat 4  //how many hours before the deadline the ring starts lighting up.
 
-//int singlepixeldelay = preheat/12*60*60*1000;
+//int singlepixeldelay = preheat/(NUMPIXELS/2)*60*60*1000;
 
-int singlepixeldelay = (5 * 60) / 12;
+int singlepixeldelay = (60 * 60) / NUMPIXELS/2; //in minutes
 
 int pixel = 0;
 int pixel2 = 0;
@@ -207,18 +207,20 @@ void setup() {
   //NTP setup:
   setSyncProvider(getNtpTime);
   setSyncInterval(300);
+  digitalClockDisplay();
+
 
   int morningAlarmTime = morningDeadline - preheat;
-  Alarm.alarmRepeat(/*morningAlarmTime*/17, 50, 0, MorningAlarm);    // Setup for the morning alarm
-  Alarm.alarmRepeat(/*morningDeadline*/17, 55, 0, MorningDeadline);  
+  Alarm.alarmRepeat(/*morningAlarmTime*/16, 0, 0, MorningAlarm);    // Setup for the morning alarm
+  Alarm.alarmRepeat(/*morningDeadline*/17, 0, 0, MorningDeadline);  
 
   int eveningAlarmTime = eveningDeadline - preheat;
-  Alarm.alarmRepeat(/*eveningAlarmTime*/17, 35, 0, EveningAlarm);           // Setup for the evening alarm
-  Alarm.alarmRepeat(/*eveningDeadline*/17, 40, 0, EveningDeadline);
+  Alarm.alarmRepeat(/*eveningAlarmTime*/16, 30, 0, EveningAlarm);           // Setup for the evening alarm
+  Alarm.alarmRepeat(/*eveningDeadline*/17, 30, 0, EveningDeadline);
 
   int chewiesAlarmTime = chewiesDeadline - preheat;
-  Alarm.alarmRepeat(/*chewiesAlarmTime*/17, 40, 30, ChewiesAlarm);           // Setup for the chewies alarm
-  Alarm.alarmRepeat(/*chewiesDeadline*/17, 45, 30, ChewiesDeadline);
+  Alarm.alarmRepeat(/*chewiesAlarmTime*/16, 40, 30, ChewiesAlarm);           // Setup for the chewies alarm
+  Alarm.alarmRepeat(/*chewiesDeadline*/17, 40, 30, ChewiesDeadline);
 
   clearsecond();
 
@@ -295,7 +297,7 @@ void PixelAdvance2() {
 }
 
 void clearfirst(){
-  for (int i = 0; i < NUMPIXELS/2-1; i++) {
+  for (int i = 0; i < NUMPIXELS/2+1; i++) {
 
     pixels.setPixelColor(i, pixels.Color(0, 0, 0));
     pixels.show();
@@ -347,7 +349,7 @@ void loop() {
     fed = true;
     bot.sendMessage(CHAT_ID, DOGS_WERE_FED);
     Alarm.free(fedTimer);
-
+    Serial.print("freed fedTimer");
   }
   if (btnPress2 == true) {
     btnPress2 = false;
@@ -359,7 +361,8 @@ void loop() {
       //delay(25);
     }
     bot.sendMessage(CHAT_ID, DOGS_GIVEN_CHEWIES);
-    Alarm.free(chewieTimer);    
+    Alarm.free(chewieTimer);
+    Serial.print("freed chewieTimer");
 
   }
   if (WiFi.status() != WL_CONNECTED) {
