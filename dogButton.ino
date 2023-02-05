@@ -10,10 +10,10 @@
 #include <WiFiUdp.h>
 
 #define pxlPin 25
-#define NUMPIXELS 24
+#define NUMPIXELS 32
 #define ledPin 2
 #define buttonPin 12
-#define buttonPin2 14
+#define buttonPin2 13
 
 //messages
 #define DOGS_NEED_FED "Feed the poor doggos!"
@@ -22,14 +22,14 @@
 #define DOGS_GIVEN_CHEWIES "The dogs have been given chewies"
 
 #define morningDeadline 10  //deadline for feeding the dogs in the morning
-#define eveningDeadline 18  //deadline for feeding the dogs in the evening
-#define chewiesDeadline 22 //deadline for chewies
+#define eveningDeadline 17  //deadline for feeding the dogs in the evening
+#define chewiesDeadline 21 //deadline for chewies
 
 #define preheat 4  //how many hours before the deadline the ring starts lighting up.
 
-//int singlepixeldelay = preheat/(NUMPIXELS/2)*60*60*1000;
+int singlepixeldelay = preheat*3600/(NUMPIXELS/2);
 
-int singlepixeldelay = (60 * 60) / NUMPIXELS/2; //in minutes
+//int singlepixeldelay = (60 * 60) / NUMPIXELS/2; //in minutes
 
 int pixel = 0;
 int pixel2 = 0;
@@ -175,6 +175,14 @@ void handleNewMessages(int numNewMessages){
         // bot.sendMessage(chat_id, welcome, "Markdown");
         btnPress = true;
       }
+      if (text == "/gave_chewies@SmudgeandFloofbot"){
+        // String welcome = "Welcome to Universal Arduino Telegram Bot library, " + from_name + ".\n";
+        // welcome += "This is Inline Keyboard Markup example.\n\n";
+        // welcome += "/options : returns the inline keyboard\n";
+
+        // bot.sendMessage(chat_id, welcome, "Markdown");
+        btnPress2 = true;
+      }
     }
   }
 }
@@ -203,7 +211,7 @@ void setup() {
   Serial.println(" CONNECTED");
   //telegram setup:
   secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT);  // Add root certificate for api.telegram.org
-  bot.sendMessage(CHAT_ID, "Bot started up", "");
+  //bot.sendMessage(CHAT_ID, "Bot started up", "");
   //NTP setup:
   setSyncProvider(getNtpTime);
   setSyncInterval(300);
@@ -211,16 +219,16 @@ void setup() {
 
 
   int morningAlarmTime = morningDeadline - preheat;
-  Alarm.alarmRepeat(/*morningAlarmTime*/16, 0, 0, MorningAlarm);    // Setup for the morning alarm
-  Alarm.alarmRepeat(/*morningDeadline*/17, 0, 0, MorningDeadline);  
+  Alarm.alarmRepeat(morningAlarmTime, 0, 0, MorningAlarm);    // Setup for the morning alarm
+  Alarm.alarmRepeat(morningDeadline, 0, 0, MorningDeadline);  
 
   int eveningAlarmTime = eveningDeadline - preheat;
-  Alarm.alarmRepeat(/*eveningAlarmTime*/16, 30, 0, EveningAlarm);           // Setup for the evening alarm
-  Alarm.alarmRepeat(/*eveningDeadline*/17, 30, 0, EveningDeadline);
+  Alarm.alarmRepeat(eveningAlarmTime, 30, 0, EveningAlarm);           // Setup for the evening alarm
+  Alarm.alarmRepeat(eveningDeadline, 30, 0, EveningDeadline);
 
   int chewiesAlarmTime = chewiesDeadline - preheat;
-  Alarm.alarmRepeat(/*chewiesAlarmTime*/16, 40, 30, ChewiesAlarm);           // Setup for the chewies alarm
-  Alarm.alarmRepeat(/*chewiesDeadline*/17, 40, 30, ChewiesDeadline);
+  Alarm.alarmRepeat(chewiesAlarmTime, 35, 0, ChewiesAlarm);           // Setup for the chewies alarm
+  Alarm.alarmRepeat(chewiesDeadline, 35, 0, ChewiesDeadline);
 
   clearsecond();
 
@@ -261,7 +269,7 @@ void EveningDeadline() {
 void ChewiesAlarm() {
   Serial.println("chewies alarm");
   chewie = false;
-  pixel2 = 12;
+  pixel2 = NUMPIXELS/2+1;
   clearsecond();
   chewieTimer = Alarm.timerRepeat(singlepixeldelay, PixelAdvance2);
   PixelAdvance2();
@@ -290,14 +298,14 @@ void PixelAdvance2() {
   pixels.show();
   pixel2++;
 
-  if (pixel2>NUMPIXELS){
+  if (pixel2+1>NUMPIXELS){
     Alarm.free(chewieTimer);
     Serial.println("clearing timer2");
   }
 }
 
 void clearfirst(){
-  for (int i = 0; i < NUMPIXELS/2+1; i++) {
+  for (int i = 0; i < NUMPIXELS/2; i++) {
 
     pixels.setPixelColor(i, pixels.Color(0, 0, 0));
     pixels.show();
@@ -349,7 +357,8 @@ void loop() {
     fed = true;
     bot.sendMessage(CHAT_ID, DOGS_WERE_FED);
     Alarm.free(fedTimer);
-    Serial.print("freed fedTimer");
+    Serial.println("freed fedTimer");
+    delay(100);
   }
   if (btnPress2 == true) {
     btnPress2 = false;
@@ -362,7 +371,8 @@ void loop() {
     }
     bot.sendMessage(CHAT_ID, DOGS_GIVEN_CHEWIES);
     Alarm.free(chewieTimer);
-    Serial.print("freed chewieTimer");
+    Serial.println("freed chewieTimer");
+    delay(100);
 
   }
   if (WiFi.status() != WL_CONNECTED) {
