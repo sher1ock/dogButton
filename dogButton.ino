@@ -216,19 +216,20 @@ void setup() {
   setSyncProvider(getNtpTime);
   setSyncInterval(300);
   digitalClockDisplay();
-
+  
+  Alarm.alarmRepeat(0, 0, 0, MidnightReset);
 
   int morningAlarmTime = morningDeadline - preheat;
   Alarm.alarmRepeat(morningAlarmTime, 0, 0, MorningAlarm);    // Setup for the morning alarm
   Alarm.alarmRepeat(morningDeadline, 0, 0, MorningDeadline);  
 
   int eveningAlarmTime = eveningDeadline - preheat;
-  Alarm.alarmRepeat(eveningAlarmTime, 30, 0, EveningAlarm);           // Setup for the evening alarm
-  Alarm.alarmRepeat(eveningDeadline, 30, 0, EveningDeadline);
+  Alarm.alarmRepeat(eveningAlarmTime, 0, 0, EveningAlarm);           // Setup for the evening alarm
+  Alarm.alarmRepeat(eveningDeadline, 0, 0, EveningDeadline);
 
   int chewiesAlarmTime = chewiesDeadline - preheat;
-  Alarm.alarmRepeat(chewiesAlarmTime, 35, 0, ChewiesAlarm);           // Setup for the chewies alarm
-  Alarm.alarmRepeat(chewiesDeadline, 35, 0, ChewiesDeadline);
+  Alarm.alarmRepeat(chewiesAlarmTime, 0, 0, ChewiesAlarm);           // Setup for the chewies alarm
+  Alarm.alarmRepeat(chewiesDeadline, 0, 0, ChewiesDeadline);
 
   clearsecond();
 
@@ -321,7 +322,11 @@ void clearsecond(){
     pixels.show();
     delay(5);
   }
-}  
+}
+
+void MidnightReset(){
+  pixels.clear();
+}
 
 void digitalClockDisplay() {
   // digital clock display of the time
